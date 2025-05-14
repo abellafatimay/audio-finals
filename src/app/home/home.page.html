@@ -1,12 +1,27 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
-    <ion-title>
-      Blank
-    </ion-title>
+    <ion-title>Audio Controls</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content>
-  <input type="file" accept="audio/*" (change)="handleFile($event)">
-  
+<ion-content class="ion-padding">
+  <input
+    type="file"
+    accept=".aac,.m4a,.mp3,.wav,.ogg,.flac,.opus"
+    multiple
+    (change)="handleMultipleFiles($event)"
+  />
+
+  <ion-list>
+    <ion-item *ngFor="let audio of loadedAudios">
+      <ion-label>{{ audio.name }}</ion-label>
+      <ion-button size="small" (click)="playAudio(audio.assetId)">Play</ion-button>
+      <ion-button size="small" (click)="loopAudio(audio.assetId)">Loop</ion-button>
+      <ion-button size="small" (click)="stopAudio(audio.assetId)">Stop</ion-button>
+      <ion-button size="small" (click)="unloadAudio(audio.assetId)" color="danger">Unload</ion-button>
+      <ion-button size="small" (click)="getDuration(audio.assetId)">Duration</ion-button>
+      <ion-button size="small" (click)="getCurrentTime(audio.assetId)">Time</ion-button>
+      <ion-button size="small" (click)="isPlaying(audio.assetId)">Status</ion-button>
+    </ion-item>
+  </ion-list>
 </ion-content>
