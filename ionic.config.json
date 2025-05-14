@@ -1,0 +1,7 @@
+{
+  "name": "audio-finals",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
