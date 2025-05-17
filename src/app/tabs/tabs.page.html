@@ -1,0 +1,30 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Music Player</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">tabs</ion-title>
+    </ion-toolbar>
+  </ion-header>
+</ion-content>
+
+<ion-tabs>
+  <ion-tab-bar slot="bottom">
+    <ion-tab-button tab="home" [routerLink]="['/tabs/home']">
+      <ion-icon name="play-circle"></ion-icon>
+      Listen Now
+    </ion-tab-button>
+    <ion-tab-button tab="local" [routerLink]="['/tabs/local']">
+      <ion-icon name="folder"></ion-icon>
+      Local
+    </ion-tab-button>
+        <ion-tab-button tab="stream" [routerLink]="['/tabs/stream']">
+      <ion-icon name="cloud"></ion-icon>
+      <ion-label>Stream</ion-label>
+    </ion-tab-button>
+  </ion-tab-bar>
+</ion-tabs>

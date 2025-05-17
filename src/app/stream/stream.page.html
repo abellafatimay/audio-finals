@@ -1,0 +1,65 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Music Player</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-searchbar [(ngModel)]="searchQuery"></ion-searchbar>
+
+  <ion-buttons class="ion-justify-content-center">
+    <ion-button (click)="searchDeezerTracks()">Tracks</ion-button>
+    <ion-button (click)="searchDeezerArtists()">Artists</ion-button>
+    <ion-button (click)="searchDeezerAlbums()">Albums</ion-button>
+  </ion-buttons>
+
+  <ion-button expand="block" color="primary" (click)="loadCharts()">Show Deezer Charts</ion-button>
+  <ion-button expand="block" color="primary" (click)="loadRadios()">Show Deezer Radios</ion-button>
+
+  <!-- Display Tracks --> 
+  <ion-list *ngIf="deezerTracks.length > 0">
+    <ion-list-header>Tracks</ion-list-header>
+    <ion-item *ngFor="let track of deezerTracks">
+      <ion-label>
+        <h2>{{ track.title }}</h2>
+        <p>{{ track.artist.name }}</p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <!-- Display Artists -->
+  <ion-list *ngIf="deezerArtists.length > 0">
+    <ion-list-header>Artists</ion-list-header>
+    <ion-item *ngFor="let artist of deezerArtists">
+      <ion-thumbnail slot="start">
+        <img [src]="artist.picture_small" alt="Artist" />
+      </ion-thumbnail>
+      <ion-label>
+        <h2>{{ artist.name }}</h2>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <!-- Display Albums -->
+  <ion-list *ngIf="deezerAlbums.length > 0">
+    <ion-list-header>Albums</ion-list-header>
+    <ion-item *ngFor="let album of deezerAlbums">
+      <ion-thumbnail slot="start">
+        <img [src]="album.cover_small" alt="Album cover" />
+      </ion-thumbnail>
+      <ion-label>
+        <h2>{{ album.title }}</h2>
+        <p>{{ album.artist.name }}</p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <ion-text color="danger" *ngIf="errorMessage">
+    <p>{{ errorMessage }}</p>
+  </ion-text>
+
+<pre>Tracks: {{ deezerTracks | json }}</pre>
+<pre>Artists: {{ deezerArtists | json }}</pre>
+<pre>Albums: {{ deezerAlbums | json }}</pre>
+
+</ion-content>
