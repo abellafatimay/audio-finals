@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { DeezerService } from '../deezer/deezer.service';
+import { AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-stream',
@@ -14,23 +15,29 @@ export class StreamPage {
   deezerAlbums: any[] = [];
   deezerCharts: any = null;
   deezerRadios: any = null;
+  selectedRadioTracks: any[] = [];
   errorMessage = '';
+  audio = new Audio();
 
-  constructor(private deezer: DeezerService) {}
+  constructor(
+    private deezer: DeezerService,
+    private alertController: AlertController
+  ) {}
 
   async searchDeezerTracks() {
-    this.errorMessage = '';
+    if (!this.searchQuery.trim()) {
+      this.deezerTracks = [];
+      this.showErrorAlert('Please enter a search term.');
+      return;
+    }
+
     try {
-      const res = await this.deezer.searchTracks(this.searchQuery);
-      this.deezerTracks = res || [];
-      this.deezerAlbums = [];
-      this.deezerArtists = [];
-      if (this.deezerTracks.length === 0) {
-        this.errorMessage = 'No tracks found.';
+      this.deezerTracks = await this.deezer.searchTracks(this.searchQuery);
+      if (!this.deezerTracks || this.deezerTracks.length === 0) {
+        this.showErrorAlert('No tracks found.');
       }
     } catch (err) {
-      const error = err as any;
-      this.errorMessage = 'Error loading tracks: ' + (error.message || err);
+      this.handleError('tracks', err);
     }
   }
 
@@ -38,14 +45,14 @@ export class StreamPage {
     this.errorMessage = '';
     if (!this.searchQuery.trim()) {
       this.deezerArtists = [];
-      this.errorMessage = 'Please enter a search term.';
+      this.showErrorAlert('Please enter a search term.');
       return;
     }
 
     try {
       this.deezerArtists = await this.deezer.searchArtists(this.searchQuery);
       if (!this.deezerArtists || this.deezerArtists.length === 0) {
-        this.errorMessage = 'No artists found.';
+        this.showErrorAlert('No artists found.');
       }
     } catch (err) {
       this.handleError('artists', err);
@@ -56,14 +63,14 @@ export class StreamPage {
     this.errorMessage = '';
     if (!this.searchQuery.trim()) {
       this.deezerAlbums = [];
-      this.errorMessage = 'Please enter a search term.';
+      this.showErrorAlert('Please enter a search term.');
       return;
     }
 
     try {
       this.deezerAlbums = await this.deezer.searchAlbums(this.searchQuery);
       if (!this.deezerAlbums || this.deezerAlbums.length === 0) {
-        this.errorMessage = 'No albums found.';
+        this.showErrorAlert('No albums found.');
       }
     } catch (err) {
       this.handleError('albums', err);
@@ -75,7 +82,7 @@ export class StreamPage {
     try {
       this.deezerCharts = await this.deezer.getCharts();
       if (!this.deezerCharts || !this.deezerCharts.tracks || !this.deezerCharts.tracks.data || this.deezerCharts.tracks.data.length === 0) {
-        this.errorMessage = 'No charts found.';
+        this.showErrorAlert('No charts found.');
       }
     } catch (err) {
       this.handleError('charts', err);
@@ -87,15 +94,41 @@ export class StreamPage {
     try {
       this.deezerRadios = await this.deezer.getRadios();
       if (!this.deezerRadios || !this.deezerRadios.data || this.deezerRadios.data.length === 0) {
-        this.errorMessage = 'No radios found.';
+        this.showErrorAlert('No radios found.');
       }
     } catch (err) {
       this.handleError('radios', err);
     }
   }
 
-  private handleError(context: string, err: any) {
+  playPreview(previewUrl: string) {
+    this.audio.pause();
+    this.audio.src = previewUrl;
+    this.audio.load();
+    this.audio.play();
+  }
+
+  async loadRadioTracks(radioId: number) {
+    try {
+      this.selectedRadioTracks = await this.deezer.getRadioTracks(radioId);
+    } catch (err) {
+      this.selectedRadioTracks = [];
+      this.showErrorAlert('Could not load radio songs.');
+    }
+  }
+
+  async showErrorAlert(message: string) {
+    const alert = await this.alertController.create({
+      header: 'Error',
+      message,
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+
+  handleError(context: string, err: any) {
     const error = err as any;
-    this.errorMessage = `Error loading ${context}: ${error.message || err}`;
+    const msg = `Error loading ${context}: ${error.message || err}`;
+    this.showErrorAlert(msg);
   }
 }

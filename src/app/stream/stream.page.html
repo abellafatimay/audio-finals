@@ -24,6 +24,9 @@
         <h2>{{ track.title }}</h2>
         <p>{{ track.artist.name }}</p>
       </ion-label>
+      <ion-button *ngIf="track.preview" (click)="playPreview(track.preview)">
+        <ion-icon name="play"></ion-icon>
+      </ion-button>
     </ion-item>
   </ion-list>
 
@@ -54,12 +57,48 @@
     </ion-item>
   </ion-list>
 
-  <ion-text color="danger" *ngIf="errorMessage">
-    <p>{{ errorMessage }}</p>
-  </ion-text>
+  <!-- Display Deezer Charts -->
+  <ion-list *ngIf="deezerCharts?.tracks?.data?.length">
+    <ion-list-header>Top Chart Tracks</ion-list-header>
+    <ion-item *ngFor="let track of deezerCharts.tracks.data">
+      <ion-label>
+        <h2>{{ track.title }}</h2>
+        <p>{{ track.artist.name }}</p>
+      </ion-label>
+      <ion-button *ngIf="track.preview" (click)="playPreview(track.preview)">
+        <ion-icon name="play"></ion-icon>
+      </ion-button>
+    </ion-item>
+  </ion-list>
 
-<pre>Tracks: {{ deezerTracks | json }}</pre>
-<pre>Artists: {{ deezerArtists | json }}</pre>
-<pre>Albums: {{ deezerAlbums | json }}</pre>
+  <!-- Display Deezer Radios -->
+  <ion-list *ngIf="deezerRadios?.data?.length">
+    <ion-list-header>Radios</ion-list-header>
+    <ion-item *ngFor="let radio of deezerRadios.data">
+      <ion-thumbnail slot="start">
+        <img [src]="radio.picture_small || radio.picture" alt="Radio" />
+      </ion-thumbnail>
+      <ion-label>
+        <h2>{{ radio.title }}</h2>
+        <p>{{ radio.description }}</p>
+      </ion-label>
+      <ion-button (click)="loadRadioTracks(radio.id)">Show Songs</ion-button>
+    </ion-item>
+  </ion-list>
+
+  <!-- Display Tracks for Selected Radio -->
+  <div *ngIf="selectedRadioTracks.length > 0">
+    <h3>Radio Songs</h3>
+    <ion-list>
+      <ion-item *ngFor="let track of selectedRadioTracks">
+        <ion-label>
+          {{ track.title }} - {{ track.artist?.name }}
+        </ion-label>
+        <ion-button fill="clear" (click)="playPreview(track.preview)">
+          ▶️
+        </ion-button>
+      </ion-item>
+    </ion-list>
+  </div>
 
 </ion-content>
