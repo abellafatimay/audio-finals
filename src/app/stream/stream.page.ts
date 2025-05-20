@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
-import { DeezerService } from '../deezer/deezer.service';
+import { DeezerService } from '../services/deezer/deezer.service';
 import { AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-stream',
   templateUrl: './stream.page.html',
   styleUrls: ['./stream.page.scss'],
-  standalone: false,
+  standalone: false
 })
 export class StreamPage {
   searchQuery = '';

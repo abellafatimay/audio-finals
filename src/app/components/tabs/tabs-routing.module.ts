@@ -11,16 +11,16 @@ const routes: Routes = [
       {
         path: 'home',
         loadChildren: () =>
-          import('../home/home.module').then((m) => m.HomePageModule),
+          import('../../home/home.module').then((m) => m.HomePageModule),
       },
       {
         path: 'local',
         loadChildren: () =>
-          import('../local/local.module').then((m) => m.LocalPageModule),
+          import('../../local/local.module').then((m) => m.LocalPageModule),
       },
             {
         path: 'stream',
-        loadChildren: () => import('../stream/stream.module').then(m => m.StreamPageModule)
+        loadChildren: () => import('../../stream/stream.module').then(m => m.StreamPageModule)
       },
       {
         path: '',

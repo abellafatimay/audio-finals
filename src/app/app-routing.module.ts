@@ -9,12 +9,17 @@ const routes: Routes = [
   },
   {
     path: 'tabs',
-    loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule)
+    loadChildren: () => import('./components/tabs/tabs.module').then(m => m.TabsPageModule)
   },
   {
     path: 'stream',
     loadChildren: () => import('./stream/stream.module').then( m => m.StreamPageModule)
   },
+  {
+    path: 'playlist-details/:name',
+    loadChildren: () => import('./playlist-details/playlist-details.module').then( m => m.PlaylistDetailsPageModule)
+  },
+
 
 
 ];

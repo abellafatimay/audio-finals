@@ -1,0 +1,56 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/home?segment=playlists"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ playlist?.name }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content *ngIf="playlist">
+  <ion-list>
+    <ion-item
+      button
+      *ngFor="let track of playlist.tracks; let i = index"
+      [class.playing]="currentTrackIndex === i"
+      (click)="currentTrackIndex !== i ? playTrack(i) : null"
+    >
+      <ion-avatar slot="start">
+        <img [src]="track.picture || 'assets/placeholder.png'" alt="Album Art" />
+      </ion-avatar>
+      <ion-label [color]="currentTrackIndex === i ? 'primary' : 'dark'">
+        <div style="font-weight: bold;">{{ track.name }}</div>
+        <div *ngIf="track.artist || track.album" style="font-size: small;">
+          <span *ngIf="track.artist">{{ track.artist }}</span>
+          <span *ngIf="track.artist && track.album"> - </span>
+          <span *ngIf="track.album">{{ track.album }}</span>
+        </div>
+      </ion-label>
+      <ion-button fill="clear" slot="end" color="danger" (click)="removeTrackFromPlaylist(i, $event)">
+        <ion-icon name="trash"></ion-icon>
+      </ion-button>
+    </ion-item>
+  </ion-list>
+  <div *ngIf="playlist.tracks.length === 0" class="ion-padding">
+    <ion-text color="medium">No tracks in this playlist.</ion-text>
+  </div>
+</ion-content>
+
+<ion-footer *ngIf="currentTrackIndex > -1">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="playPrevious()">
+        <ion-icon name="play-skip-back"></ion-icon>
+      </ion-button>
+      <ion-button (click)="togglePlayPause()">
+        <ion-icon [name]="isPaused ? 'play' : 'pause'"></ion-icon>
+      </ion-button>
+      <ion-button (click)="playNext()">
+        <ion-icon name="play-skip-forward"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>
+      {{ playlist.tracks[currentTrackIndex]?.name || 'Select a track' }}
+    </ion-title>
+  </ion-toolbar>
+</ion-footer>

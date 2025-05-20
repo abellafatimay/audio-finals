@@ -1,48 +1,98 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>Music</ion-title>
+    <ion-title>Local Music Player</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content class="ion-padding">
   <input #fileInput type="file" accept=".aac,.m4a,.mp3,.wav,.ogg,.flac,.opus" multiple (change)="handleMultipleFiles($event)" style="display: none;"/>
+ 
+  <ion-segment [(ngModel)]="audioView">
+    <ion-segment-button value="all">
+      <ion-label>All Songs</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="playlists">
+      <ion-label>Playlists</ion-label>
+    </ion-segment-button>
+  </ion-segment>
 
-  <ion-list>
-    <ion-item *ngFor="let audio of loadedAudios">
-      <ion-label>{{ audio.name }}</ion-label>
-      <ion-button size="small" (click)="playAudio(audio.assetId)">Play</ion-button>
-      <ion-button size="small" (click)="loopAudio(audio.assetId)">Loop</ion-button>
-      <ion-button size="small" (click)="stopAudio(audio.assetId)">Stop</ion-button>
-      <ion-button size="small" (click)="unloadAudio(audio.assetId)" color="danger">Unload</ion-button>
-      <ion-button size="small" (click)="getDuration(audio.assetId)">Duration</ion-button>
-      <ion-button size="small" (click)="getCurrentTime(audio.assetId)">Time</ion-button>
-      <ion-button size="small" (click)="isPlaying(audio.assetId)">Status</ion-button>
+  <!-- All Songs List -->
+  <ion-list *ngIf="audioView === 'all'">
+    <ion-item 
+      button 
+      *ngFor="let audio of loadedAudios" 
+      [class.playing]="isCurrentTrack(audio)"
+      (click)="onAudioItemClick(audio)"
+    >
+      <ion-avatar slot="start">
+        <img [src]="audio.picture || 'assets/placeholder.png'" alt="Album Art" />
+      </ion-avatar>
+      <ion-label [color]="isCurrentTrack(audio) ? 'primary' : 'dark'">
+        <div style="font-weight: bold;">{{ audio.name }}</div>
+        <div *ngIf="audio.artist || audio.album" style="font-size: small;">
+          <span *ngIf="audio.artist">{{ audio.artist }}</span>
+          <span *ngIf="audio.artist && audio.album"> - </span>
+          <span *ngIf="audio.album">{{ audio.album }}</span>
+        </div>
+      </ion-label>
+      <ion-button fill="clear" slot="end" (click)="presentAudioOptions($event, audio)">
+        <ion-icon name="ellipsis-vertical"></ion-icon>
+      </ion-button>
+    </ion-item>
+  </ion-list>
+
+  <!-- Playlists List -->
+  <ion-list *ngIf="audioView === 'playlists'">
+    <ion-item button *ngFor="let playlist of playlists" (click)="goToPlaylistDetail(playlist)">
+      <ion-label>
+        <div style="font-weight: bold;">{{ playlist.name }}</div>
+        <div>
+          <ion-text color="medium">
+            {{ playlist.tracks.length }} {{ playlist.tracks.length === 1 ? 'track' : 'tracks' }}
+          </ion-text>
+        </div>
+        <div *ngIf="playlist.tracks.length === 0">
+          <ion-text color="medium">No tracks</ion-text>
+        </div>
+      </ion-label>
+      <ion-button fill="clear" slot="end" (click)="openAddToPlaylistModal(playlist, $event)">
+        <ion-icon name="add"></ion-icon>
+      </ion-button>
     </ion-item>
   </ion-list>
   
-  <ion-card *ngIf="currentAudio">
-    <ion-card-content>
-      <div style="display: flex; align-items: center;">
-        <ion-icon name="musical-notes-outline" slot="start" style="font-size: 2em; margin-right: 12px;"></ion-icon>
-        <div style="flex: 1;">
-          <div>{{ currentAudio.name }}</div>
-        </div>
-        <ion-button fill="clear" size="small" (click)="playAudio(currentAudio.assetId)">
-          <ion-icon name="play"></ion-icon>
-        </ion-button>
-        <ion-button fill="clear" size="small" (click)="pauseAudio(currentAudio.assetId)">
-          <ion-icon name="pause"></ion-icon>
-        </ion-button>
-        <ion-button fill="clear" size="small" (click)="stopAudio(currentAudio.assetId)">
-          <ion-icon name="stop"></ion-icon>
-        </ion-button>
-      </div>
-    </ion-card-content>
-  </ion-card>
-  
-  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+
+  <!-- FAB for creating a playlist: only show in "playlists" segment -->
+  <ion-fab *ngIf="audioView === 'playlists'" vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab-button (click)="createPlaylist()">
+      <ion-icon name="list-circle"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+
+  <!-- FAB for adding audio files: only show in "all" segment -->
+  <ion-fab *ngIf="audioView === 'all'" vertical="bottom" horizontal="end" slot="fixed">
     <ion-fab-button (click)="fileInput.click()">
       <ion-icon name="add"></ion-icon>
     </ion-fab-button>
-  </ion-fab>
+  </ion-fab> 
+
 </ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="audioPlayer.playPrevious()">
+        <ion-icon name="play-skip-back"></ion-icon>
+      </ion-button>
+      <ion-button (click)="audioPlayer.togglePlayPause()">
+        <ion-icon [name]="isPausedSnapshot ? 'play' : 'pause'"></ion-icon>
+      </ion-button>
+      <ion-button (click)="audioPlayer.playNext()">
+        <ion-icon name="play-skip-forward"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>
+      {{ currentTrackSnapshot?.name || 'Select a track' }}
+    </ion-title>
+  </ion-toolbar>
+</ion-footer>
