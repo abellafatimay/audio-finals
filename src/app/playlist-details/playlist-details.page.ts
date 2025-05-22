@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { PlaylistService } from '../services/playlist/playlist.service';
 import { AudioPlayerService } from '../services/audioplayer/audioplayer.service';
+import { AudioLibraryService } from '../services/audio-library/audio-library.service';
 import { Preferences } from '@capacitor/preferences';
 import { Subscription } from 'rxjs';
 
@@ -17,19 +18,26 @@ export class PlaylistDetailsPage implements OnInit, OnDestroy {
   currentTrackIndex: number = -1;
   isPaused: boolean = false;
   private subs: Subscription[] = [];
+  notFound = false;
 
   constructor(
     private route: ActivatedRoute,
     private playlistService: PlaylistService,
-    public audioPlayer: AudioPlayerService
+    public audioPlayer: AudioPlayerService,
+    private audioLibrary: AudioLibraryService
   ) {}
 
   async ngOnInit() {
+    await this.audioLibrary.restoreAudiosFromStorage();
     const name = decodeURIComponent(this.route.snapshot.paramMap.get('name') || '');
     this.playlists = await this.playlistService.getPlaylists();
     this.playlist = this.playlists.find((p: any) => p.name === name);
 
-    // Subscribe to currentTrack$ and isPaused$
+    if (!this.playlist) {
+      this.notFound = true;
+      return;
+    }
+
     this.subs.push(
       this.audioPlayer.currentTrack$.subscribe(track => {
         this.currentTrackIndex = this.playlist?.tracks?.findIndex(
@@ -42,18 +50,27 @@ export class PlaylistDetailsPage implements OnInit, OnDestroy {
         this.isPaused = paused;
       })
     );
-    this.debugPlaylistsStorage();
   }
 
   ngOnDestroy() {
     this.subs.forEach(s => s.unsubscribe());
   }
 
-  playTrack(index: number) {
-    this.audioPlayer.playTrack(this.playlist.tracks[index], this.playlist.tracks);
+  async playTrack(index: number) {
+    this.currentTrackIndex = index;
+    const track = this.playlist.tracks[index];
+    if (!this.audioLibrary.preloadedAssets.has(track.assetId)) {
+      try {
+        await this.audioLibrary.preloadAudio(track.assetId);
+      } catch (e) {
+        console.warn('Failed to preload audio', e);
+        return;
+      }
+    }
+    this.audioPlayer.playTrack(track, this.playlist.tracks);
   }
 
-  async togglePlayPause() {
+  async togglePlayPause() { 
     await this.audioPlayer.togglePlayPause();
   }
 
@@ -75,9 +92,7 @@ export class PlaylistDetailsPage implements OnInit, OnDestroy {
     event.stopPropagation();
     const track = this.playlist.tracks[index];
     await this.playlistService.removeTrackFromPlaylist(this.playlist.name, track.assetId);
-    // Refresh the playlist from storage
-    const playlists = await this.playlistService.getPlaylists();
-    this.playlist = playlists.find((p: any) => p.name === this.playlist.name);
+    this.playlist.tracks.splice(index, 1);
   }
 
   async debugPlaylistsStorage() {

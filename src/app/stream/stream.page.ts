@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { DeezerService } from '../services/deezer/deezer.service';
 import { AlertController } from '@ionic/angular';
 
@@ -8,7 +8,7 @@ import { AlertController } from '@ionic/angular';
   styleUrls: ['./stream.page.scss'],
   standalone: false
 })
-export class StreamPage {
+export class StreamPage implements OnInit {
   searchQuery = '';
   deezerTracks: any[] = [];
   deezerArtists: any[] = [];
@@ -16,64 +16,66 @@ export class StreamPage {
   deezerCharts: any = null;
   deezerRadios: any = null;
   selectedRadioTracks: any[] = [];
+  selectedAlbumTracks: any[] = [];
   errorMessage = '';
   audio = new Audio();
+  isViewingAlbumTracks = false;
+  isViewingArtistAlbums = false;
+  selectedArtistAlbums: any[] = [];
+  selectedArtistName = '';
 
   constructor(
     private deezer: DeezerService,
     private alertController: AlertController
   ) {}
 
+  ngOnInit() {
+    this.loadCharts();
+    this.loadRadios();
+  }
+
   async searchDeezerTracks() {
+    this.deezerArtists = [];
+    this.deezerAlbums = [];
+    this.deezerTracks = [];
     if (!this.searchQuery.trim()) {
-      this.deezerTracks = [];
       this.showErrorAlert('Please enter a search term.');
       return;
     }
-
     try {
       this.deezerTracks = await this.deezer.searchTracks(this.searchQuery);
-      if (!this.deezerTracks || this.deezerTracks.length === 0) {
-        this.showErrorAlert('No tracks found.');
-      }
     } catch (err) {
-      this.handleError('tracks', err);
+      this.showErrorAlert('Error searching tracks.');
     }
   }
 
   async searchDeezerArtists() {
-    this.errorMessage = '';
+    this.deezerTracks = [];
+    this.deezerAlbums = [];
+    this.deezerArtists = [];
     if (!this.searchQuery.trim()) {
-      this.deezerArtists = [];
       this.showErrorAlert('Please enter a search term.');
       return;
     }
-
     try {
       this.deezerArtists = await this.deezer.searchArtists(this.searchQuery);
-      if (!this.deezerArtists || this.deezerArtists.length === 0) {
-        this.showErrorAlert('No artists found.');
-      }
     } catch (err) {
-      this.handleError('artists', err);
+      this.showErrorAlert('Error searching artists.');
     }
   }
 
   async searchDeezerAlbums() {
-    this.errorMessage = '';
+    this.deezerTracks = [];
+    this.deezerArtists = [];
+    this.deezerAlbums = [];
     if (!this.searchQuery.trim()) {
-      this.deezerAlbums = [];
       this.showErrorAlert('Please enter a search term.');
       return;
     }
-
     try {
       this.deezerAlbums = await this.deezer.searchAlbums(this.searchQuery);
-      if (!this.deezerAlbums || this.deezerAlbums.length === 0) {
-        this.showErrorAlert('No albums found.');
-      }
     } catch (err) {
-      this.handleError('albums', err);
+      this.showErrorAlert('Error searching albums.');
     }
   }
 
@@ -115,6 +117,59 @@ export class StreamPage {
       this.selectedRadioTracks = [];
       this.showErrorAlert('Could not load radio songs.');
     }
+  }
+
+  async showAlbumTracks(albumId: number) {
+    this.isViewingAlbumTracks = true;
+    this.selectedAlbumTracks = [];
+    this.deezerAlbums = []; // Clear albums list
+    // Optionally clear other lists if needed
+    try {
+      this.selectedAlbumTracks = await this.deezer.getAlbumTracks(albumId);
+    } catch (err) {
+      this.selectedAlbumTracks = [];
+      this.showErrorAlert('Could not load album tracks.');
+    }
+  }
+
+  async backToAlbums() {
+    this.isViewingAlbumTracks = false;
+    this.selectedAlbumTracks = [];
+    // Reload albums using the current search query
+    if (this.searchQuery && this.searchQuery.trim()) {
+      this.deezerAlbums = await this.deezer.searchAlbums(this.searchQuery);
+    }
+  }
+
+  async showArtistAlbums(artist: any) {
+    this.isViewingArtistAlbums = true;
+    this.selectedArtistAlbums = [];
+    this.selectedArtistName = artist.name;
+    // Clear other lists
+    this.deezerTracks = [];
+    this.deezerAlbums = [];
+    this.deezerArtists = [];
+    this.selectedAlbumTracks = [];
+    this.selectedRadioTracks = [];
+    try {
+      this.selectedArtistAlbums = await this.deezer.getArtistAlbums(artist.id);
+    } catch (err) {
+      this.selectedArtistAlbums = [];
+      this.showErrorAlert('Could not load artist albums.');
+    }
+  }
+
+  async backToArtists() {
+    this.isViewingArtistAlbums = false;
+    this.selectedArtistAlbums = [];
+    // Reload artists using the current search query
+    if (this.searchQuery && this.searchQuery.trim()) {
+      this.deezerArtists = await this.deezer.searchArtists(this.searchQuery);
+    }
+  }
+
+  backToRadios() {
+    this.selectedRadioTracks = [];
   }
 
   async showErrorAlert(message: string) {

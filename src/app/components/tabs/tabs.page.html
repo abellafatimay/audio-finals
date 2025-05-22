@@ -1,4 +1,4 @@
-<ion-tabs>
+<ion-tabs (ionTabsDidChange)="onTabChange($event)">
   <ion-tab-bar slot="bottom">
     <ion-tab-button tab="home" [routerLink]="['/tabs/home']">
       <ion-icon name="play-circle"></ion-icon>

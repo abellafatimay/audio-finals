@@ -5,7 +5,16 @@
 </ion-header>
 
 <ion-content class="ion-padding">
-  <ion-searchbar [(ngModel)]="searchQuery"></ion-searchbar>
+  <ion-item>
+    <ion-input
+      [(ngModel)]="searchQuery"
+      type="search"
+      enterkeyhint="search"
+      placeholder="Search Deezer"
+      (keyup.enter)="searchDeezerTracks()"
+      clearInput="true">
+    </ion-input>
+  </ion-item>
 
   <ion-buttons class="ion-justify-content-center">
     <ion-button (click)="searchDeezerTracks()">Tracks</ion-button>
@@ -13,27 +22,30 @@
     <ion-button (click)="searchDeezerAlbums()">Albums</ion-button>
   </ion-buttons>
 
-  <ion-button expand="block" color="primary" (click)="loadCharts()">Show Deezer Charts</ion-button>
-  <ion-button expand="block" color="primary" (click)="loadRadios()">Show Deezer Radios</ion-button>
-
   <!-- Display Tracks --> 
   <ion-list *ngIf="deezerTracks.length > 0">
-    <ion-list-header>Tracks</ion-list-header>
     <ion-item *ngFor="let track of deezerTracks">
+      <ion-avatar slot="start">
+        <img [src]="track.album?.cover || 'assets/placeholder.png'" alt="Album Art" />
+      </ion-avatar>
       <ion-label>
-        <h2>{{ track.title }}</h2>
-        <p>{{ track.artist.name }}</p>
+        <div style="font-weight: bold;">{{ track.title }}</div>
+        <div style="font-size: small;">
+          <span *ngIf="track.artist">{{ track.artist.name }}</span>
+          <span *ngIf="track.artist && track.album"> - </span>
+          <span *ngIf="track.album">{{ track.album.title }}</span>
+        </div>
       </ion-label>
-      <ion-button *ngIf="track.preview" (click)="playPreview(track.preview)">
+      <ion-button fill="clear" slot="end" (click)="playPreview(track.preview)">
         <ion-icon name="play"></ion-icon>
       </ion-button>
     </ion-item>
   </ion-list>
 
   <!-- Display Artists -->
-  <ion-list *ngIf="deezerArtists.length > 0">
+  <ion-list *ngIf="deezerArtists.length > 0 && !isViewingArtistAlbums">
     <ion-list-header>Artists</ion-list-header>
-    <ion-item *ngFor="let artist of deezerArtists">
+    <ion-item *ngFor="let artist of deezerArtists" (click)="showArtistAlbums(artist)">
       <ion-thumbnail slot="start">
         <img [src]="artist.picture_small" alt="Artist" />
       </ion-thumbnail>
@@ -43,10 +55,30 @@
     </ion-item>
   </ion-list>
 
+  <!-- Artist Albums with Back Button -->
+  <div *ngIf="isViewingArtistAlbums">
+    <ion-button (click)="backToArtists()" color="medium">
+      <ion-icon name="arrow-back"></ion-icon>
+      Back to Artists
+    </ion-button>
+    <h3>{{ selectedArtistName }}'s Albums</h3>
+    <ion-list>
+      <ion-item *ngFor="let album of selectedArtistAlbums" (click)="showAlbumTracks(album.id)">
+        <ion-thumbnail slot="start">
+          <img [src]="album.cover_small" alt="Album cover" />
+        </ion-thumbnail>
+        <ion-label>
+          <h2>{{ album.title }}</h2>
+          <p>{{ album.release_date }}</p>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </div>
+
   <!-- Display Albums -->
-  <ion-list *ngIf="deezerAlbums.length > 0">
+  <ion-list *ngIf="deezerAlbums.length > 0 && !isViewingAlbumTracks">
     <ion-list-header>Albums</ion-list-header>
-    <ion-item *ngFor="let album of deezerAlbums">
+    <ion-item *ngFor="let album of deezerAlbums" (click)="showAlbumTracks(album.id)">
       <ion-thumbnail slot="start">
         <img [src]="album.cover_small" alt="Album cover" />
       </ion-thumbnail>
@@ -57,13 +89,47 @@
     </ion-item>
   </ion-list>
 
+  <!-- Album Tracks with Back Button -->
+  <div *ngIf="isViewingAlbumTracks">
+    <ion-button (click)="backToAlbums()" color="medium">
+      <ion-icon name="arrow-back"></ion-icon>
+      Back to Albums
+    </ion-button>
+    <h3>Album Songs</h3>
+    <ion-list>
+      <ion-item *ngFor="let track of selectedAlbumTracks">
+        <ion-avatar slot="start">
+          <img [src]="track.album?.cover || 'assets/placeholder.png'" alt="Album Art" />
+        </ion-avatar>
+        <ion-label>
+          <div style="font-weight: bold;">{{ track.title }}</div>
+          <div style="font-size: small;">
+            <span *ngIf="track.artist">{{ track.artist.name }}</span>
+            <span *ngIf="track.artist && track.album"> - </span>
+            <span *ngIf="track.album">{{ track.album.title }}</span>
+          </div>
+        </ion-label>
+        <ion-button fill="clear" (click)="playPreview(track.preview)">
+          <ion-icon name="play"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-list>
+  </div>
+
   <!-- Display Deezer Charts -->
   <ion-list *ngIf="deezerCharts?.tracks?.data?.length">
     <ion-list-header>Top Chart Tracks</ion-list-header>
     <ion-item *ngFor="let track of deezerCharts.tracks.data">
+      <ion-avatar slot="start">
+        <img [src]="track.album?.cover || 'assets/placeholder.png'" alt="Album Art" />
+      </ion-avatar>
       <ion-label>
-        <h2>{{ track.title }}</h2>
-        <p>{{ track.artist.name }}</p>
+        <div style="font-weight: bold;">{{ track.title }}</div>
+        <div style="font-size: small;">
+          <span *ngIf="track.artist">{{ track.artist.name }}</span>
+          <span *ngIf="track.artist && track.album"> - </span>
+          <span *ngIf="track.album">{{ track.album.title }}</span>
+        </div>
       </ion-label>
       <ion-button *ngIf="track.preview" (click)="playPreview(track.preview)">
         <ion-icon name="play"></ion-icon>
@@ -88,14 +154,26 @@
 
   <!-- Display Tracks for Selected Radio -->
   <div *ngIf="selectedRadioTracks.length > 0">
+    <ion-button (click)="backToRadios()" color="medium">
+      <ion-icon name="arrow-back"></ion-icon>
+      Back to Radios
+    </ion-button>
     <h3>Radio Songs</h3>
     <ion-list>
       <ion-item *ngFor="let track of selectedRadioTracks">
+        <ion-avatar slot="start">
+          <img [src]="track.album?.cover || 'assets/placeholder.png'" alt="Album Art" />
+        </ion-avatar>
         <ion-label>
-          {{ track.title }} - {{ track.artist?.name }}
+          <div style="font-weight: bold;">{{ track.title }}</div>
+          <div style="font-size: small;">
+            <span *ngIf="track.artist">{{ track.artist.name }}</span>
+            <span *ngIf="track.artist && track.album"> - </span>
+            <span *ngIf="track.album">{{ track.album.title }}</span>
+          </div>
         </ion-label>
         <ion-button fill="clear" (click)="playPreview(track.preview)">
-          ▶️
+          <ion-icon name="play"></ion-icon>
         </ion-button>
       </ion-item>
     </ion-list>

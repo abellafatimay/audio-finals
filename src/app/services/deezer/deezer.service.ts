@@ -60,6 +60,25 @@ export class DeezerService {
     });
     return response.data.data;
   }
+
+  async getArtistAlbums(artistId: number): Promise<any[]> {
+    const response = await Http.get({
+      url: `${this.baseUrl}/artist/${artistId}/albums`,
+      params: {},
+      headers: {}
+    });
+    return response.data.data;
+  }
+
+  async getAlbumTracks(albumId: number): Promise<any[]> {
+    const response = await Http.get({
+      url: `${this.baseUrl}/album/${albumId}`,
+      params: {},
+      headers: {}
+    });
+    // Tracks are in response.data.tracks.data
+    return response.data.tracks.data;
+  }
 }
 
 

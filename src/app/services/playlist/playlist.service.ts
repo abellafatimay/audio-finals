@@ -9,7 +9,11 @@ export class PlaylistService {
 
   async getPlaylists(): Promise<any[]> {
     const stored = await Preferences.get({ key: this.key });
-    return stored.value ? JSON.parse(stored.value) : [];
+    const parsed = stored.value ? JSON.parse(stored.value) : [];
+    return parsed.map((p: any) => ({
+      ...p,
+      tracks: Array.isArray(p.tracks) ? p.tracks : [],
+    }));
   }
 
   async savePlaylists(playlists: any[]) {
@@ -25,18 +29,52 @@ export class PlaylistService {
   async addTrackToPlaylist(playlistName: string, track: any) {
     const playlists = await this.getPlaylists();
     const playlist = playlists.find((p: any) => p.name === playlistName);
-    if (playlist && !playlist.tracks.some((t: any) => t.assetId === track.assetId)) {
-      playlist.tracks.push(track);
-      await this.savePlaylists(playlists);
+
+    if (playlist) {
+      if (!Array.isArray(playlist.tracks)) {
+        playlist.tracks = [];
+      }
+      const alreadyExists = playlist.tracks.some((t: any) => t.assetId === track.assetId);
+      if (!alreadyExists) {
+        playlist.tracks.push(track);
+        await this.savePlaylists(playlists);
+      }
     }
   }
 
   async removeTrackFromPlaylist(playlistName: string, assetId: string) {
     const playlists = await this.getPlaylists();
     const playlist = playlists.find((p: any) => p.name === playlistName);
-    if (playlist) {
+    if (playlist && Array.isArray(playlist.tracks)) {
       playlist.tracks = playlist.tracks.filter((t: any) => t.assetId !== assetId);
       await this.savePlaylists(playlists);
+    }
+  }
+
+  async deletePlaylist(name: string) {
+    const playlists = await this.getPlaylists();
+    const updated = playlists.filter((p: any) => p.name !== name);
+    await this.savePlaylists(updated);
+  }
+
+  async renamePlaylist(oldName: string, newName: string) {
+    const playlists = await this.getPlaylists();
+    const playlist = playlists.find((p: any) => p.name === oldName);
+    if (playlist) {
+      playlist.name = newName;
+      await this.savePlaylists(playlists);
+    }
+  }
+
+  async updateTrackInPlaylist(playlistName: string, updatedTrack: any) {
+    const playlists = await this.getPlaylists();
+    const playlist = playlists.find((p: any) => p.name === playlistName);
+    if (playlist && Array.isArray(playlist.tracks)) {
+      const idx = playlist.tracks.findIndex((t: any) => t.assetId === updatedTrack.assetId);
+      if (idx !== -1) {
+        playlist.tracks[idx] = updatedTrack;
+        await this.savePlaylists(playlists);
+      }
     }
   }
 }
