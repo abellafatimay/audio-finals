@@ -3,6 +3,7 @@ import { Preferences } from '@capacitor/preferences';
 import { App } from '@capacitor/app';
 import { Router } from '@angular/router';
 
+
 @Component({
   selector: 'app-tabs',
   templateUrl: './tabs.page.html',

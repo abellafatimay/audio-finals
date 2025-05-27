@@ -17,10 +17,20 @@
   </ion-item>
 
   <ion-buttons class="ion-justify-content-center">
-    <ion-button (click)="searchDeezerTracks()">Tracks</ion-button>
-    <ion-button (click)="searchDeezerArtists()">Artists</ion-button>
-    <ion-button (click)="searchDeezerAlbums()">Albums</ion-button>
+    <ion-button (click)="searchDeezerTracks()" [disabled]="!searchQuery.trim()">Tracks</ion-button>
+    <ion-button (click)="searchDeezerArtists()" [disabled]="!searchQuery.trim()">Artists</ion-button>
+    <ion-button (click)="searchDeezerAlbums()" [disabled]="!searchQuery.trim()">Albums</ion-button>
   </ion-buttons>
+
+  <!-- Back to Charts & Radios Button -->
+  <ion-button 
+    *ngIf="(deezerTracks.length > 0 || deezerArtists.length > 0 || deezerAlbums.length > 0) && !isViewingArtistAlbums && !isViewingAlbumTracks"
+    expand="block"
+    color="medium"
+    (click)="clearSearchAndShowCharts()">
+    <ion-icon name="arrow-back"></ion-icon>
+    Back to Charts & Radios
+  </ion-button>
 
   <!-- Display Tracks --> 
   <ion-list *ngIf="deezerTracks.length > 0">
@@ -36,7 +46,7 @@
           <span *ngIf="track.album">{{ track.album.title }}</span>
         </div>
       </ion-label>
-      <ion-button fill="clear" slot="end" (click)="playPreview(track.preview)">
+      <ion-button fill="clear" slot="end" (click)="playDeezerTrack(track, deezerTracks)">
         <ion-icon name="play"></ion-icon>
       </ion-button>
     </ion-item>
@@ -109,7 +119,7 @@
             <span *ngIf="track.album">{{ track.album.title }}</span>
           </div>
         </ion-label>
-        <ion-button fill="clear" (click)="playPreview(track.preview)">
+        <ion-button fill="clear" (click)="playDeezerTrack(track, deezerTracks)">
           <ion-icon name="play"></ion-icon>
         </ion-button>
       </ion-item>
@@ -117,7 +127,7 @@
   </div>
 
   <!-- Display Deezer Charts -->
-  <ion-list *ngIf="deezerCharts?.tracks?.data?.length">
+  <ion-list *ngIf="deezerCharts?.tracks?.data?.length && deezerTracks.length === 0 && deezerArtists.length === 0 && deezerAlbums.length === 0 && !isViewingArtistAlbums && !isViewingAlbumTracks">
     <ion-list-header>Top Chart Tracks</ion-list-header>
     <ion-item *ngFor="let track of deezerCharts.tracks.data">
       <ion-avatar slot="start">
@@ -131,16 +141,19 @@
           <span *ngIf="track.album">{{ track.album.title }}</span>
         </div>
       </ion-label>
-      <ion-button *ngIf="track.preview" (click)="playPreview(track.preview)">
+      <ion-button *ngIf="track.preview" (click)="playDeezerTrack(track, deezerTracks)">
         <ion-icon name="play"></ion-icon>
       </ion-button>
     </ion-item>
   </ion-list>
 
   <!-- Display Deezer Radios -->
-  <ion-list *ngIf="deezerRadios?.data?.length">
+  <ion-list *ngIf="deezerRadios?.data?.length && deezerTracks.length === 0 && deezerArtists.length === 0 && deezerAlbums.length === 0 && !isViewingArtistAlbums && !isViewingAlbumTracks && selectedRadioTracks.length === 0">
     <ion-list-header>Radios</ion-list-header>
-    <ion-item *ngFor="let radio of deezerRadios.data">
+    <ion-item 
+      *ngFor="let radio of deezerRadios.data" 
+      button 
+      (click)="loadRadioTracks(radio.id)">
       <ion-thumbnail slot="start">
         <img [src]="radio.picture_small || radio.picture" alt="Radio" />
       </ion-thumbnail>
@@ -148,7 +161,6 @@
         <h2>{{ radio.title }}</h2>
         <p>{{ radio.description }}</p>
       </ion-label>
-      <ion-button (click)="loadRadioTracks(radio.id)">Show Songs</ion-button>
     </ion-item>
   </ion-list>
 
@@ -172,11 +184,40 @@
             <span *ngIf="track.album">{{ track.album.title }}</span>
           </div>
         </ion-label>
-        <ion-button fill="clear" (click)="playPreview(track.preview)">
+        <ion-button fill="clear" (click)="playDeezerTrack(track, deezerTracks)">
           <ion-icon name="play"></ion-icon>
         </ion-button>
       </ion-item>
     </ion-list>
   </div>
 
+  <!-- Loading Charts Spinner -->
+  <div *ngIf="isLoadingCharts" class="ion-text-center" style="margin: 2em 0;">
+    <ion-spinner name="crescent"></ion-spinner>
+    <div>Loading charts...</div>
+  </div>
+
 </ion-content>
+
+<ion-footer *ngIf="audioPlayer.currentTrack$ | async as currentTrack">
+  <ion-toolbar>
+    <ion-item lines="none">
+      <ion-avatar slot="start">
+        <img [src]="currentTrack.album?.cover || 'assets/placeholder.png'" alt="Album Art" />
+      </ion-avatar>
+      <ion-label>
+        <div style="font-weight: bold;">{{ currentTrack.title }}</div>
+        <div style="font-size: small;">{{ currentTrack.artist?.name }}</div>
+        <ion-range
+          min="0"
+          [max]="audioPlayer.duration$ | async"
+          [value]="audioPlayer.currentTime$ | async"
+          (ionChange)="audioPlayer.seekTo(+$event.detail.value)">
+        </ion-range>
+      </ion-label>
+      <ion-button fill="clear" slot="end" (click)="audioPlayer.togglePlayPause()">
+        <ion-icon [name]="(audioPlayer.isPaused$ | async) ? 'play' : 'pause'"></ion-icon>
+      </ion-button>
+    </ion-item>
+  </ion-toolbar>
+</ion-footer>

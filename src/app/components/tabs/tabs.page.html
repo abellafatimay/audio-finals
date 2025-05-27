@@ -2,15 +2,16 @@
   <ion-tab-bar slot="bottom">
     <ion-tab-button tab="home" [routerLink]="['/tabs/home']">
       <ion-icon name="play-circle"></ion-icon>
-      Listen Now
+      <ion-label>Listen Now</ion-label>
     </ion-tab-button>
     <ion-tab-button tab="local" [routerLink]="['/tabs/local']">
       <ion-icon name="folder"></ion-icon>
-      Local
+      <ion-label>Local</ion-label>
     </ion-tab-button>
-        <ion-tab-button tab="stream" [routerLink]="['/tabs/stream']">
+    <ion-tab-button tab="stream" [routerLink]="['/tabs/stream']">
       <ion-icon name="cloud"></ion-icon>
       <ion-label>Stream</ion-label>
     </ion-tab-button>
   </ion-tab-bar>
 </ion-tabs>
+

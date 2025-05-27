@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { PlaylistService } from '../services/playlist/playlist.service';
-import { AudioPlayerService } from '../services/audioplayer/audioplayer.service';
+import { AudioPlayerService } from '../services/audio-player/audioplayer.service';
 import { AudioLibraryService } from '../services/audio-library/audio-library.service';
 import { Preferences } from '@capacitor/preferences';
 import { Subscription } from 'rxjs';

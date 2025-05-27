@@ -4,8 +4,28 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <h2>Welcome to the Music Player!</h2>
-  <p>Select a tab below to get started.</p>
-
+<ion-content class="listen-now-bg" fullscreen>
+  <div class="listen-now-container">
+    <div class="listen-now-icon-group">
+      <ion-icon name="headset" class="listen-now-headset"></ion-icon>
+      <ion-icon name="sparkles" class="listen-now-sparkles"></ion-icon>
+    </div>
+    <h1 class="listen-now-title">
+      Welcome to Music! <ion-icon name="headset"></ion-icon>
+    </h1>
+    <div class="listen-now-subtitle">
+      Start listening by exploring<br>
+      <span>local or streamed music!</span>
+    </div>
+    <ion-list lines="none" class="listen-now-list">
+      <ion-item button detail lines="none" class="listen-now-local" (click)="goToLocal()">
+        <ion-icon name="folder-open" slot="start"></ion-icon>
+        <ion-label>Browse Local Files</ion-label>
+      </ion-item>
+      <ion-item button detail lines="none" class="listen-now-stream" (click)="goToStream()">
+        <ion-icon name="cloud" slot="start"></ion-icon>
+        <ion-label>Explore Streams</ion-label>
+      </ion-item>
+    </ion-list>
+  </div>
 </ion-content>
