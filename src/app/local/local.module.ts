@@ -7,7 +7,6 @@ import { IonicModule } from '@ionic/angular';
 import { LocalPageRoutingModule } from './local-routing.module';
 
 import { LocalPage } from './local.page';
-import { AudioTimePipe } from '../local/audio-time.pipe';
 
 @NgModule({
   imports: [
@@ -15,7 +14,7 @@ import { AudioTimePipe } from '../local/audio-time.pipe';
     FormsModule,
     IonicModule,
     LocalPageRoutingModule,
-    AudioTimePipe
+    
   ],
   declarations: [LocalPage]
 })

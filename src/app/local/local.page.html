@@ -5,6 +5,7 @@
 </ion-header>
 
 <ion-content class="ion-padding">
+  <ion-spinner *ngIf="isLoading" name="crescent" class="center-spinner"></ion-spinner>
   <input #fileInput type="file" accept=".aac,.m4a,.mp3,.wav,.ogg,.flac,.opus" multiple (change)="handleMultipleFiles($event)" style="display:none"/>
  
   <ion-segment [value]="audioView" (ionChange)="onAudioViewChange($event)">
@@ -18,7 +19,7 @@
 
   <!-- All Songs List -->
   <ion-list *ngIf="audioView === 'all'">
-    <ion-item button *ngFor="let audio of loadedAudios" [class.playing]="isCurrentTrack(audio)" (click)="onAudioItemClick(audio)">
+    <ion-item button *ngFor="let audio of loadedAudios" [class.playing]="isCurrentTrack(audio)" (click)="onAudioTrackClick(audio)">
 
       <ion-avatar slot="start">
         <img [src]="audio.picture || 'assets/placeholder.png'" alt="Album Art" />
@@ -34,7 +35,6 @@
       <ion-button fill="clear" slot="end" (click)="presentAudioOptions($event, audio)">
         <ion-icon name="ellipsis-vertical"></ion-icon>
       </ion-button>
-      <pre>{{ audio.picture }}</pre> 
     </ion-item>
   </ion-list>
 
@@ -76,19 +76,22 @@
     </ion-fab-button>
   </ion-fab> 
 
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
 </ion-content>
 
 <!-- playback -->
 <ion-footer>
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-button (click)="audioPlayer.playPrevious()">
+      <ion-button (click)="playPrevious()">
         <ion-icon name="play-skip-back"></ion-icon>
       </ion-button>
-      <ion-button (click)="audioPlayer.togglePlayPause()">
+      <ion-button (click)="togglePlayPause()">
         <ion-icon [name]="isPausedSnapshot ? 'play' : 'pause'"></ion-icon>
       </ion-button>
-      <ion-button (click)="audioPlayer.playNext()">
+      <ion-button (click)="playNext()">
         <ion-icon name="play-skip-forward"></ion-icon>
       </ion-button>
       <ion-button *ngIf="currentTrackSnapshot" (click)="toggleRepeat()">

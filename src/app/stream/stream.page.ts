@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { DeezerService } from '../services/deezer/deezer.service';
-import { AlertController } from '@ionic/angular';
+import { AlertController, LoadingController } from '@ionic/angular';
+import { AudioPlayerService } from 'src/app/services/audio-player/audioplayer.service';
 
 @Component({
   selector: 'app-stream',
@@ -17,16 +18,17 @@ export class StreamPage implements OnInit {
   deezerRadios: any = null;
   selectedRadioTracks: any[] = [];
   selectedAlbumTracks: any[] = [];
-  errorMessage = '';
   audio = new Audio();
   isViewingAlbumTracks = false;
   isViewingArtistAlbums = false;
   selectedArtistAlbums: any[] = [];
   selectedArtistName = '';
-
+  isLoadingCharts = false;
   constructor(
     private deezer: DeezerService,
-    private alertController: AlertController
+    private alertController: AlertController,
+    public audioPlayer: AudioPlayerService,
+    private loadingController: LoadingController
   ) {}
 
   ngOnInit() {
@@ -42,10 +44,20 @@ export class StreamPage implements OnInit {
       this.showErrorAlert('Please enter a search term.');
       return;
     }
+    const loading = await this.loadingController.create({
+      message: 'Searching tracks...',
+      spinner: 'crescent'
+    });
+    await loading.present();
     try {
       this.deezerTracks = await this.deezer.searchTracks(this.searchQuery);
+      if (!this.deezerTracks || this.deezerTracks.length === 0) {
+        await this.showNoResultsAlert('No tracks found.');
+      }
     } catch (err) {
       this.showErrorAlert('Error searching tracks.');
+    } finally {
+      await loading.dismiss();
     }
   }
 
@@ -57,10 +69,20 @@ export class StreamPage implements OnInit {
       this.showErrorAlert('Please enter a search term.');
       return;
     }
+    const loading = await this.loadingController.create({
+      message: 'Searching artists...',
+      spinner: 'crescent'
+    });
+    await loading.present();
     try {
       this.deezerArtists = await this.deezer.searchArtists(this.searchQuery);
+      if (!this.deezerArtists || this.deezerArtists.length === 0) {
+        await this.showNoResultsAlert('No artists found.');
+      }
     } catch (err) {
       this.showErrorAlert('Error searching artists.');
+    } finally {
+      await loading.dismiss();
     }
   }
 
@@ -72,27 +94,44 @@ export class StreamPage implements OnInit {
       this.showErrorAlert('Please enter a search term.');
       return;
     }
+    const loading = await this.loadingController.create({
+      message: 'Searching albums...',
+      spinner: 'crescent'
+    });
+    await loading.present();
     try {
       this.deezerAlbums = await this.deezer.searchAlbums(this.searchQuery);
+      if (!this.deezerAlbums || this.deezerAlbums.length === 0) {
+        await this.showNoResultsAlert('No albums found.');
+      }
     } catch (err) {
       this.showErrorAlert('Error searching albums.');
+    } finally {
+      await loading.dismiss();
     }
   }
 
   async loadCharts() {
-    this.errorMessage = '';
+    
+    this.isLoadingCharts = true;
     try {
       this.deezerCharts = await this.deezer.getCharts();
-      if (!this.deezerCharts || !this.deezerCharts.tracks || !this.deezerCharts.tracks.data || this.deezerCharts.tracks.data.length === 0) {
+      if (
+        !this.deezerCharts ||
+        !this.deezerCharts.tracks ||
+        !this.deezerCharts.tracks.data ||
+        this.deezerCharts.tracks.data.length === 0
+      ) {
         this.showErrorAlert('No charts found.');
       }
     } catch (err) {
       this.handleError('charts', err);
+    } finally {
+      this.isLoadingCharts = false;
     }
   }
 
   async loadRadios() {
-    this.errorMessage = '';
     try {
       this.deezerRadios = await this.deezer.getRadios();
       if (!this.deezerRadios || !this.deezerRadios.data || this.deezerRadios.data.length === 0) {
@@ -103,12 +142,6 @@ export class StreamPage implements OnInit {
     }
   }
 
-  playPreview(previewUrl: string) {
-    this.audio.pause();
-    this.audio.src = previewUrl;
-    this.audio.load();
-    this.audio.play();
-  }
 
   async loadRadioTracks(radioId: number) {
     try {
@@ -122,8 +155,7 @@ export class StreamPage implements OnInit {
   async showAlbumTracks(albumId: number) {
     this.isViewingAlbumTracks = true;
     this.selectedAlbumTracks = [];
-    this.deezerAlbums = []; // Clear albums list
-    // Optionally clear other lists if needed
+    // Do NOT clear this.deezerAlbums, this.deezerTracks, etc.
     try {
       this.selectedAlbumTracks = await this.deezer.getAlbumTracks(albumId);
     } catch (err) {
@@ -145,12 +177,7 @@ export class StreamPage implements OnInit {
     this.isViewingArtistAlbums = true;
     this.selectedArtistAlbums = [];
     this.selectedArtistName = artist.name;
-    // Clear other lists
-    this.deezerTracks = [];
-    this.deezerAlbums = [];
-    this.deezerArtists = [];
-    this.selectedAlbumTracks = [];
-    this.selectedRadioTracks = [];
+    // Do NOT clear this.deezerArtists, this.deezerTracks, etc.
     try {
       this.selectedArtistAlbums = await this.deezer.getArtistAlbums(artist.id);
     } catch (err) {
@@ -181,9 +208,37 @@ export class StreamPage implements OnInit {
     await alert.present();
   }
 
+  async showNoResultsAlert(message: string) {
+    const alert = await this.alertController.create({
+      header: 'No Results',
+      message,
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+
   handleError(context: string, err: any) {
     const error = err as any;
     const msg = `Error loading ${context}: ${error.message || err}`;
     this.showErrorAlert(msg);
+  }
+
+  clearSearchAndShowCharts() {
+    this.searchQuery = '';
+    this.deezerTracks = [];
+    this.deezerArtists = [];
+    this.deezerAlbums = [];
+    this.isViewingArtistAlbums = false;
+    this.isViewingAlbumTracks = false;
+  }
+
+  playDeezerTrack(track: any, playlist: any[]) {
+    this.audioPlayer.playTrack({
+      src: track.preview,
+      type: 'stream',
+      name: track.title || '',
+      artist: track.artist ? track.artist : { name: track.artist_name || 'Unknown Artist' },
+      album: track.album ? track.album : { cover: (track.album?.cover || track.cover || 'assets/placeholder.png'), title: track.album?.title || '' }
+    }, playlist);
   }
 }

@@ -4,19 +4,12 @@ import { ToastController, AlertController, ActionSheetController } from '@ionic/
 import { App } from '@capacitor/app';
 import { PlaylistService } from '../services/playlist/playlist.service';
 import { Router, ActivatedRoute } from '@angular/router';
-import { AudioPlayerService } from '../services/audioplayer/audioplayer.service'
+import { AudioPlayerService } from '../services/audio-player/audioplayer.service';
 import { AudioLibraryService } from '../services/audio-library/audio-library.service';
 import { UserPreferencesService } from '../services/user-preference/user-preference.service';
 import { AudioMetadataService } from '../services/audio-metadata/audio-metadata.service';
-
-export type AudioItem = {
-  assetId: string;
-  name: string;
-  fileName: string; 
-  picture?: string; 
-  artist?: string;
-  album?: string;
-};
+import { AudioTrack } from '../models/audio-track.model';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-local',
@@ -25,16 +18,19 @@ export type AudioItem = {
   standalone: false,
 })
 export class LocalPage {
-  loadedAudios: AudioItem[] = [];
+  loadedAudios: AudioTrack[] = [];
   isCardExpanded = false;
   private currentToast: HTMLIonToastElement | null = null;
   audioView: 'all' | 'playlists' = 'all';
   playlists: any[] = [];
   selectedPlaylist: any = null;
-  currentTrackSnapshot?: AudioItem;
+  currentTrackSnapshot?: AudioTrack;
   isPausedSnapshot = false;
-  preloadedAssets: Set<string> = new Set();
   repeatMode: boolean = false;
+  private subscriptions = new Subscription();
+  private audiosLoaded = false;
+  isLoading = false;
+  isLoadingPlaylists = false;
 
   constructor(
     private toastController: ToastController,
@@ -54,7 +50,6 @@ export class LocalPage {
       }
     });
 
-    // Load audios immediately in constructor
     this.restoreAudios();
 
     App.addListener('backButton', () => {
@@ -80,52 +75,47 @@ export class LocalPage {
             await this.audioPlayer.pause();
           }
         }
-      } else {
-        // App coming back to foreground - restore state
-        console.log('App resumed - restoring state');
 
-        // First, restore the audio list
+        // Stop all audios to prevent overlap on resume
+        await this.stopAllAudios();
+      } else {
+        await this.stopAllAudios();
         await this.restoreAudios();
 
-        // Then restore the last played track
         const lastPlayedAssetId = await this.userPreferences.getPreference('lastPlayedTrack');
-        const wasPlaying = await this.userPreferences.getPreference('wasPlaying');
-
         if (lastPlayedAssetId && this.loadedAudios.length > 0) {
           const track = this.loadedAudios.find(a => a.assetId === lastPlayedAssetId);
           if (track) {
-            // Restore the track state without auto-playing
-            this.audioPlayer.restoreTrackState(track, this.loadedAudios, !wasPlaying);
-
-            // If user was playing music, resume it
-            if (wasPlaying) {
-              setTimeout(async () => {
-                try {
-                  await this.audioPlayer.resume();
-                } catch (e) {
-                  console.warn('Could not resume playback:', e);
-                }
-              }, 500);
-            }
+            // Always restore as paused, never auto-play
+            this.audioPlayer.restoreTrackState(track, this.loadedAudios, true);
           }
         }
       }
     });
   }
 
-  async ngOnInit() {
-    await this.restoreAudios();
-     await this.audioLibrary.debugAudioListStorage();
-    this.audioPlayer.currentTrack$.subscribe(track => {
+  private subscribeToPlayer() {
+    this.subscriptions.add(this.audioPlayer.currentTrack$.subscribe(track => {
       this.currentTrackSnapshot = track;
-    });
-    this.audioPlayer.isPaused$.subscribe(paused => {
+    }));
+    this.subscriptions.add(this.audioPlayer.isPaused$.subscribe(paused => {
       this.isPausedSnapshot = paused;
-    });
+    }));
+  }
+
+  async ngOnInit() {
+    await this.stopAllAudios();
+    await this.restoreAudios();
+    await this.audioLibrary.debugAudioListStorage();
+    this.subscribeToPlayer();
     const savedView = await this.userPreferences.getPreference('audioView');
     if (savedView) {
       this.audioView = savedView;
     }
+  }
+
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
   }
 
   async ionViewWillEnter() {
@@ -137,13 +127,6 @@ export class LocalPage {
         ...p,
         tracks: Array.isArray(p.tracks) ? p.tracks : []
       }));
-
-    this.audioPlayer.currentTrack$.subscribe(track => {
-      this.currentTrackSnapshot = track;
-    });
-    this.audioPlayer.isPaused$.subscribe(paused => {
-      this.isPausedSnapshot = paused;
-    });
 
     // Only restore track if we don't already have one and there's no current playback
     if (!this.audioPlayer.currentTrack$.value) {
@@ -158,25 +141,26 @@ export class LocalPage {
   }
 
   async handleMultipleFiles(event: any) {
-    const supportedExtensions = ['aac', 'm4a', 'mp3', 'wav', 'ogg', 'flac', 'opus'];
-    const files: FileList = event.target.files;
-    if (!files || files.length === 0) return;
+    this.isLoading = true;
+    try {
+      const supportedExtensions = ['aac', 'm4a', 'mp3', 'wav', 'ogg', 'flac', 'opus'];
+      const files: FileList = event.target.files;
+      if (!files || files.length === 0) return;
 
-    let addedCount = 0;
-    let duplicateCount = 0;
-    let failedCount = 0;
-    let unsupportedCount = 0;
+      let addedCount = 0;
+      let duplicateCount = 0;
+      let failedCount = 0;
+      let unsupportedCount = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      if (!extension || !supportedExtensions.includes(extension)) {
-        unsupportedCount++;
-        continue;
-      }
-      const assetId = `audio-${Date.now()}-${i}`;
-      const fileName = `${assetId}.${extension}`;
-      try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const extension = file.name.split('.').pop()?.toLowerCase();
+        if (!extension || !supportedExtensions.includes(extension)) {
+          unsupportedCount++;
+          continue;
+        }
+        const assetId = this.audioLibrary.generateAssetId(file);
+        const fileName = `${assetId}.${extension}`;
         const result = await this.audioLibrary.addAndPreloadAudio(
           file,
           assetId,
@@ -185,36 +169,56 @@ export class LocalPage {
         );
         if (result.status === 'duplicate') {
           duplicateCount++;
+        } else if (result.status === 'too_large') {
+          failedCount++;
+          this.presentToast(`File too large: ${file.name}`, 'danger');
         } else if (result.status === 'added') {
           addedCount++;
         }
-      } catch (err) {
-        failedCount++;
       }
-    }
 
-    if (addedCount > 1) {
-      this.presentToast(`${addedCount} songs added!`, 'success');
-    } else if (addedCount === 1) {
-      this.presentToast(`Song added!`, 'success');
-    }
-    if (duplicateCount > 0) {
-      this.presentToast(`${duplicateCount} duplicate file(s) skipped.`, 'danger');
-    }
-    if (unsupportedCount > 0) {
-      this.presentToast(`${unsupportedCount} unsupported file(s) skipped.`, 'danger');
-    }
-    if (failedCount > 0) {
-      this.presentToast(`${failedCount} file(s) failed to load.`, 'danger');
-    }
+      if (addedCount > 1) {
+        this.presentToast(`${addedCount} songs added!`, 'success');
+      } else if (addedCount === 1) {
+        this.presentToast(`Song added!`, 'success');
+      }
+      if (duplicateCount > 0) {
+        this.presentToast(`${duplicateCount} duplicate file(s) skipped.`, 'danger');
+      }
+      if (unsupportedCount > 0) {
+        this.presentToast(`${unsupportedCount} unsupported file(s) skipped.`, 'danger');
+      }
+      if (failedCount > 0) {
+        this.presentToast(`${failedCount} file(s) failed to load.`, 'danger');
+      }
 
-    await this.restoreAudios();
+      this.audiosLoaded = false;
+      await this.restoreAudios();
+    } finally {
+      this.isLoading = false;
+    }
   }
 
+  async preloadAllAudios() {
+    for (const audio of this.loadedAudios) {
+      if (audio.assetId && audio.src) {
+        try {
+          await NativeAudio.preload({ assetId: audio.assetId, assetPath: audio.src });
+        } catch (e) {
+          // Ignore error if already loaded
+        }
+      }
+    }
+  }
+
+  // Call this after loading audios
   async restoreAudios() {
+    if (this.audiosLoaded) return;
     try {
       this.loadedAudios = await this.audioLibrary.restoreAudiosFromStorage();
-      console.log('Loaded audios:', this.loadedAudios);
+      this.audiosLoaded = true;
+
+      await this.preloadAllAudios();
 
       // Ensure the current track is in loadedAudios if it exists
       const currentTrack = this.audioPlayer.currentTrack$.value;
@@ -224,6 +228,7 @@ export class LocalPage {
     } catch (error) {
       console.error('Error restoring audios:', error);
       this.loadedAudios = [];
+      this.audiosLoaded = false;
     }
   }
   
@@ -231,6 +236,17 @@ export class LocalPage {
   async unloadAudio(assetId: string) {
     const audio = this.loadedAudios.find(a => a.assetId === assetId);
     if (audio) {
+      // If the deleted audio is the current track, stop playback and clear state BEFORE unloading
+      if (this.currentTrackSnapshot?.assetId === assetId) {
+        try {
+          await this.audioPlayer.pause();
+        } catch (e) {
+          // Optionally log or ignore the error
+        }
+        this.audioPlayer.currentTrack$.next(null);
+        this.audioPlayer.isPaused$.next(true);
+        this.isPausedSnapshot = false;
+      }
       await this.audioLibrary.unloadAudioFile(audio);
       this.loadedAudios = this.loadedAudios.filter(a => a.assetId !== assetId);
     }
@@ -258,23 +274,19 @@ export class LocalPage {
   }
 
   playAudio(assetId: string) {
-    if (!this.audioLibrary.preloadedAssets.has(assetId)) {
-      // Preload before playing
-      this.audioLibrary.preloadAudio(assetId).then(() => {
-        this.audioPlayer.playTrack(
-          this.loadedAudios.find(a => a.assetId === assetId),
-          this.loadedAudios
-        );
-        this.userPreferences.setPreference('lastPlayedTrack', assetId);
-      }).catch(() => {
-        this.presentToast('Audio failed to preload.', 'danger');
-      });
-      return;
-    }
     const track = this.loadedAudios.find(a => a.assetId === assetId);
     if (track) {
+      if (!track.type) {
+        track.type = 'local';
+      }
+      // Start playback
       this.audioPlayer.playTrack(track, this.loadedAudios);
+      NativeAudio.isPlaying({ assetId }).then(res => {
+        console.log('Native isPlaying:', res.isPlaying);
+      });
       this.userPreferences.setPreference('lastPlayedTrack', assetId);
+    } else {
+      this.presentToast('Audio track not found.', 'danger');
     }
   }
 
@@ -285,9 +297,11 @@ export class LocalPage {
   async stopAllAudios() {
     for (const audio of this.loadedAudios) {
       try {
-        await NativeAudio.stop({ assetId: audio.assetId });
+        if (audio.assetId) {
+          await NativeAudio.stop({ assetId: audio.assetId });
+        }
       } catch (e) {
-       
+       console.error(`Failed to stop audio with assetId: ${audio.assetId}`, e);
       }
     }
   }
@@ -298,8 +312,13 @@ export class LocalPage {
   }
 
   async getCurrentTime(assetId: string) {
-    const result = await NativeAudio.getCurrentTime({ assetId });
-    console.log(`Current Time:`, result.currentTime);
+    try {
+      const result = await NativeAudio.getCurrentTime({ assetId });
+      console.log('Current Time:', result.currentTime);
+    } catch (error) {
+      console.error('Error getting current time:', error);
+      this.presentToast('Failed to get current time.', 'danger');
+    }
   }
 
   toggleCard() {
@@ -309,18 +328,17 @@ export class LocalPage {
   async presentToast(message: string, color: 'success' | 'danger' = 'danger') {
     if (this.currentToast) {
       await this.currentToast.dismiss();
-      this.currentToast = null;
     }
     this.currentToast = await this.toastController.create({
       message,
       color,
       position: 'bottom',
       duration: 3000
-    });
+    }); 
     await this.currentToast.present();
   }
 
-  async presentAudioOptions(event: Event, audio: AudioItem) {
+  async presentAudioOptions(event: Event, audio: AudioTrack) {
     event.stopPropagation();
     const actionSheet = await this.actionSheetController.create({
       header: audio.name,
@@ -329,16 +347,28 @@ export class LocalPage {
           text: 'Delete',
           role: 'destructive',
           icon: 'trash',
-          handler: () => this.unloadAudio(audio.assetId)
+          handler: () => {
+            if (audio.assetId) {
+              this.unloadAudio(audio.assetId);
+            }
+          }
         },
         {
           text: 'Get Duration',
           icon: 'time',
           handler: async () => {
-            const duration = await this.getDuration(audio.assetId);
-            const mins = Math.floor(duration / 60);
-            const secs = Math.floor(duration % 60);
-            this.presentToast(`Duration: ${mins}:${secs.toString().padStart(2, '0')}`, 'success');
+            if (audio.assetId) {
+              try {
+                const duration = await this.getDuration(audio.assetId);
+                const mins = Math.floor(duration / 60);
+                const secs = Math.floor(duration % 60);
+                this.presentToast(`Duration: ${mins}:${secs.toString().padStart(2, '0')}`, 'success');
+              } catch (error) {
+                this.presentToast('Failed to get duration.', 'danger');
+              }
+            } else {
+              this.presentToast('Duration not available for this track.', 'danger');
+            }
           }
         },
         {
@@ -351,11 +381,35 @@ export class LocalPage {
     await actionSheet.present();
   }
 
+  goToPlaylistDetail(playlist: any) {
+    this.router.navigate(['/playlist-details', playlist.name]);
+  }
+
+  isCurrentTrack(audio: AudioTrack): boolean {
+    return this.currentTrackSnapshot?.assetId === audio.assetId;
+  }
+
+  onAudioTrackClick(audio: AudioTrack) {
+    if (audio.assetId) {
+      this.playAudio(audio.assetId);
+    }
+  }
+
+  setAudioView(view: 'all' | 'playlists') {
+    this.audioView = view;
+    this.userPreferences.setPreference('audioView', view);
+  }
+
+  async onAudioViewChange(event: any) {
+    this.audioView = event.detail.value;
+    await this.userPreferences.setPreference('audioView', this.audioView);
+  }
+
   // To create a playlist
   async createPlaylist() {
     const alert = await this.alertController.create({
       header: 'New Playlist',
-      inputs: [{ name: 'name', type: 'text', placeholder: 'Playlist Name' }],
+      inputs: [{ name: 'name', type: 'text', placeholder: 'Enter playlist name' }],
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
@@ -364,7 +418,7 @@ export class LocalPage {
             if (data.name) {
               await this.playlistService.addPlaylist(data.name);
               this.playlists = (await this.playlistService.getPlaylists())
-                .filter(p => !!p) // remove null/undefined
+                .filter(p => !!p) 
                 .map(p => ({
                   ...p,
                   tracks: Array.isArray(p.tracks) ? p.tracks : []
@@ -379,7 +433,7 @@ export class LocalPage {
   }
 
   // To add a track to a playlist
-  async addToPlaylist(audio: AudioItem) {
+  async addToPlaylist(audio: AudioTrack) {
     const playlists = await this.playlistService.getPlaylists();
     const alert = await this.alertController.create({
       header: 'Add to Playlist',
@@ -395,13 +449,20 @@ export class LocalPage {
           handler: async (playlistName) => {
             await this.playlistService.addTrackToPlaylist(playlistName, audio);
             this.presentToast('Track added to playlist!', 'success');
-           
             this.playlists = (await this.playlistService.getPlaylists())
               .filter(p => !!p)
               .map(p => ({
                 ...p,
                 tracks: Array.isArray(p.tracks) ? p.tracks : []
               }));
+
+            const playlist = this.playlists.find(p => p.name === playlistName);
+            if (playlist && playlist.tracks) {
+              const track = playlist.tracks.find((t: { assetId: string | undefined; }) => t.assetId === audio.assetId);
+              if (track) {
+                this.audioPlayer.playTrack(track, playlist.tracks);
+              }
+            }
           }
         }
       ]
@@ -435,7 +496,7 @@ export class LocalPage {
         {
           text: 'Add',
           handler: async (selectedAssetIds: string[]) => {
-            playlist.tracks = this.loadedAudios.filter(audio => selectedAssetIds.includes(audio.assetId));
+            playlist.tracks = this.loadedAudios.filter(audio => audio.assetId && selectedAssetIds.includes(audio.assetId));
             await this.playlistService.savePlaylists(this.playlists);
             if (selectedAssetIds.length === 1) {
               this.presentToast('Song added to playlist!', 'success');
@@ -449,29 +510,6 @@ export class LocalPage {
     await alert.present();
   }
 
-  goToPlaylistDetail(playlist: any) {
-    this.router.navigate(['/playlist-details', playlist.name]);
-  }
-
-  isCurrentTrack(audio: AudioItem): boolean {
-    return this.currentTrackSnapshot?.assetId === audio.assetId;
-  }
-
-  onAudioItemClick(audio: AudioItem) {
-    if (!this.currentTrackSnapshot || this.currentTrackSnapshot.assetId !== audio.assetId) {
-      this.playAudio(audio.assetId);
-    }
-  }
-
-  setAudioView(view: 'all' | 'playlists') {
-    this.audioView = view;
-    this.userPreferences.setPreference('audioView', view);
-  }
-
-  async onAudioViewChange(event: any) {
-    this.audioView = event.detail.value;
-    await this.userPreferences.setPreference('audioView', this.audioView);
-  }
 
   async presentPlaylistOptions(event: Event, playlist: any) {
     event.stopPropagation();
@@ -502,7 +540,7 @@ export class LocalPage {
   async onDeletePlaylist(playlistName: string) {
     await this.playlistService.deletePlaylist(playlistName);
     this.playlists = (await this.playlistService.getPlaylists())
-      .filter(p => !!p) // remove null/undefined
+      .filter(p => !!p)
       .map(p => ({
         ...p,
         tracks: Array.isArray(p.tracks) ? p.tracks : []
@@ -529,7 +567,7 @@ async onRenamePlaylist(oldName: string) {
           try {
             await this.playlistService.renamePlaylist(oldName, newName);
             this.playlists = (await this.playlistService.getPlaylists())
-              .filter(p => !!p) // remove null/undefined
+              .filter(p => !!p)
               .map(p => ({
                 ...p,
                 tracks: Array.isArray(p.tracks) ? p.tracks : []
@@ -547,15 +585,67 @@ async onRenamePlaylist(oldName: string) {
 }
 
   async toggleRepeat() {
-    if (!this.currentTrackSnapshot) return;
     this.repeatMode = !this.repeatMode;
-    if (this.repeatMode) {
-      await NativeAudio.loop({ assetId: this.currentTrackSnapshot.assetId });
-      this.presentToast('Repeat is ON', 'success');
+    this.audioPlayer.setRepeatMode(this.repeatMode);
+    await this.presentToast(
+      this.repeatMode ? 'Repeat mode enabled' : 'Repeat mode disabled',
+      this.repeatMode ? 'success' : 'danger'
+    );
+  }
+
+  togglePlayPause() {
+    if (!this.currentTrackSnapshot && this.loadedAudios.length > 0) {
+      const firstAssetId = this.loadedAudios[0].assetId;
+      if (firstAssetId) {
+        this.playAudio(firstAssetId);
+      }
+      return;
+    }
+    if (this.isPausedSnapshot) {
+      this.audioPlayer.resume();
     } else {
-      await NativeAudio.stop({ assetId: this.currentTrackSnapshot.assetId });
-      await NativeAudio.play({ assetId: this.currentTrackSnapshot.assetId });
-      this.presentToast('Repeat is OFF', 'danger');
+      this.audioPlayer.pause();
     }
   }
+
+  async playNext() {
+  if (!this.currentTrackSnapshot && this.loadedAudios.length > 0) {
+    const assetId = this.loadedAudios[0].assetId;
+    if (assetId) {
+      this.playAudio(assetId);
+    }
+    return;
+  }
+  this.audioPlayer.playNext();
+}
+
+async playPrevious() {
+  if (!this.currentTrackSnapshot && this.loadedAudios.length > 0) {
+    const firstAssetId = this.loadedAudios[0].assetId;
+    if (firstAssetId) {
+      this.playAudio(firstAssetId);
+    }
+    return;
+  }
+  this.audioPlayer.playPrevious();
+}
+
+async refreshPlaylists() {
+  this.isLoadingPlaylists = true;
+  try {
+    this.playlists = (await this.playlistService.getPlaylists())
+      .filter(p => !!p)
+      .map(p => ({
+        ...p,
+        tracks: Array.isArray(p.tracks) ? p.tracks : []
+      }));
+  } finally {
+    this.isLoadingPlaylists = false;
+  }
+}
+
+async doRefresh(event: any) {
+  await this.refreshPlaylists();
+  event.target.complete();
+}
 }

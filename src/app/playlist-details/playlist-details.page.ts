@@ -58,16 +58,28 @@ export class PlaylistDetailsPage implements OnInit, OnDestroy {
 
   async playTrack(index: number) {
     this.currentTrackIndex = index;
-    const track = this.playlist.tracks[index];
-    if (!this.audioLibrary.preloadedAssets.has(track.assetId)) {
+    const playlistTrack = this.playlist.tracks[index];
+
+    // Get the full audio object from the audio library
+    const audioList = await this.audioLibrary.getAudioList();
+    const fullTrack = audioList.find(
+      (a: any) => a.assetId === playlistTrack.assetId
+    ) || playlistTrack;
+
+    // Ensure type is set for NativeAudio
+    if (!fullTrack.type) {
+      fullTrack.type = 'local';
+    }
+
+    if (!this.audioLibrary.preloadedAssets.has(fullTrack.assetId)) {
       try {
-        await this.audioLibrary.preloadAudio(track.assetId);
+        await this.audioLibrary.preloadAudio(fullTrack.assetId);
       } catch (e) {
         console.warn('Failed to preload audio', e);
         return;
       }
     }
-    this.audioPlayer.playTrack(track, this.playlist.tracks);
+    this.audioPlayer.playTrack(fullTrack, this.playlist.tracks);
   }
 
   async togglePlayPause() { 
@@ -93,10 +105,16 @@ export class PlaylistDetailsPage implements OnInit, OnDestroy {
     const track = this.playlist.tracks[index];
     await this.playlistService.removeTrackFromPlaylist(this.playlist.name, track.assetId);
     this.playlist.tracks.splice(index, 1);
+
+    if (
+      this.currentTrackIndex === index &&
+      this.audioPlayer.currentTrack$?.value?.assetId === track.assetId
+    ) {
+      this.audioPlayer.stop();
+      this.currentTrackIndex = -1;
+    }
+
+    this.playlists = await this.playlistService.getPlaylists();
   }
 
-  async debugPlaylistsStorage() {
-    const stored = await Preferences.get({ key: 'playlists' });
-    console.log('Stored playlists:', stored.value);
-  }
 }

@@ -37,6 +37,42 @@ export class AudioLibraryService {
     await this.saveAudioList(updated);
   }
 
+  generateAssetId(file: File): string {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    const fileHash = this.simpleFileHash(file);
+    return `audio_${timestamp}_${random}_${fileHash}`;
+  }
+
+  private simpleFileHash(file: File): string {
+    const str = `${file.name}_${file.size}_${file.lastModified}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  // NEW: Check for duplicate FILES (not asset IDs) using content hash
+  async isDuplicateFile(file: File): Promise<{isDuplicate: boolean, existingAudio?: any}> {
+    const list = await this.getAudioList();
+    const fileHash = this.simpleFileHash(file);
+
+    // Check if same file content already exists
+    const existingAudio = list.find(audio =>
+      audio.fileHash === fileHash &&
+      audio.size === file.size &&
+      audio.originalName === file.name
+    );
+
+    return {
+      isDuplicate: !!existingAudio,
+      existingAudio: existingAudio
+    };
+  }
+
   async addAndPreloadAudio(
     file: File,
     assetId: string,
@@ -48,8 +84,10 @@ export class AudioLibraryService {
       return { status: 'too_large' };
     }
 
-    const list = await this.getAudioList();
-    if (list.some(a => a.assetId === assetId || a.fileName === fileName)) {
+    // Use new duplicate check
+    const dupCheck = await this.isDuplicateFile(file);
+    if (dupCheck.isDuplicate) {
+      console.log('[Duplicate by file hash]', file.name, file.size, file.lastModified);
       return { status: 'duplicate' };
     }
 
@@ -75,7 +113,19 @@ export class AudioLibraryService {
       console.warn('Metadata extraction failed', e);
     }
 
-    const newAudio = { assetId, name: file.name, fileName, picture, artist, album };
+    const fileHash = this.simpleFileHash(file);
+    const newAudio = {
+      assetId,
+      name: file.name,
+      originalName: file.name,
+      fileName,
+      picture,
+      artist,
+      album,
+      size: file.size,
+      fileHash,
+      lastModified: file.lastModified
+    };
 
     // 3. Atomic preload + save
     try {
