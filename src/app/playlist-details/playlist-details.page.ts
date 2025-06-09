@@ -3,7 +3,6 @@ import { ActivatedRoute } from '@angular/router';
 import { PlaylistService } from '../services/playlist/playlist.service';
 import { AudioPlayerService } from '../services/audio-player/audioplayer.service';
 import { AudioLibraryService } from '../services/audio-library/audio-library.service';
-import { Preferences } from '@capacitor/preferences';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -60,13 +59,12 @@ export class PlaylistDetailsPage implements OnInit, OnDestroy {
     this.currentTrackIndex = index;
     const playlistTrack = this.playlist.tracks[index];
 
-    // Get the full audio object from the audio library
     const audioList = await this.audioLibrary.getAudioList();
     const fullTrack = audioList.find(
       (a: any) => a.assetId === playlistTrack.assetId
     ) || playlistTrack;
 
-    // Ensure type is set for NativeAudio
+
     if (!fullTrack.type) {
       fullTrack.type = 'local';
     }

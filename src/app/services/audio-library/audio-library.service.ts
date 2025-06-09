@@ -55,12 +55,10 @@ export class AudioLibraryService {
     return Math.abs(hash).toString(36);
   }
 
-  // NEW: Check for duplicate FILES (not asset IDs) using content hash
   async isDuplicateFile(file: File): Promise<{isDuplicate: boolean, existingAudio?: any}> {
     const list = await this.getAudioList();
     const fileHash = this.simpleFileHash(file);
 
-    // Check if same file content already exists
     const existingAudio = list.find(audio =>
       audio.fileHash === fileHash &&
       audio.size === file.size &&
@@ -84,7 +82,6 @@ export class AudioLibraryService {
       return { status: 'too_large' };
     }
 
-    // Use new duplicate check
     const dupCheck = await this.isDuplicateFile(file);
     if (dupCheck.isDuplicate) {
       console.log('[Duplicate by file hash]', file.name, file.size, file.lastModified);
@@ -105,7 +102,6 @@ export class AudioLibraryService {
       directory: Directory.Data,
     });
 
-    // 2. Robust metadata extraction
     let picture, artist, album;
     try {
       ({ picture, artist, album } = await extractMetadata(file) || {});
@@ -127,7 +123,7 @@ export class AudioLibraryService {
       lastModified: file.lastModified
     };
 
-    // 3. Atomic preload + save
+
     try {
       await NativeAudio.preload({
         assetId,
@@ -154,15 +150,14 @@ export class AudioLibraryService {
     const loadedAudios = await this.getAudioList();
     const validAudios: any[] = [];
     for (const audio of loadedAudios) {
-      // Validate assetId and fileName
       if (
         !audio.assetId ||
         !audio.fileName ||
-        audio.fileName.includes('/') || // basic check for invalid filename
+        audio.fileName.includes('/') ||
         typeof audio.assetId !== 'string' ||
         typeof audio.fileName !== 'string'
       ) {
-        // Invalid entry, skip and remove
+        
         await this.removeAudio(audio.assetId);
         continue;
       }
@@ -175,7 +170,7 @@ export class AudioLibraryService {
           path: audio.fileName,
           directory: Directory.Data,
         });
-        // Retry/fallback for preload
+        
         let preloadSuccess = false;
         try {
           if (!this.preloadedAssets.has(audio.assetId)) {
@@ -189,7 +184,7 @@ export class AudioLibraryService {
           }
           preloadSuccess = true;
         } catch (preloadErr) {
-          // Retry once if preload fails
+          
           try {
             await NativeAudio.unload({ assetId: audio.assetId });
             await NativeAudio.preload({
@@ -210,7 +205,7 @@ export class AudioLibraryService {
           await this.removeAudio(audio.assetId);
         }
       } catch (err) {
-        // Remove broken entry from storage
+        
         await this.removeAudio(audio.assetId);
       }
     }

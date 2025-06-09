@@ -19,7 +19,7 @@ export class AudioPlayerService {
 
   async playTrack(track: AudioTrack, playlist: AudioTrack[] = []) {
 
-    // Stop previous track
+
     if (this.currentTrack$.value) {
       try {
         if (this.currentTrack$.value.type === 'local' && NativeAudio && NativeAudio.stop) {
@@ -70,7 +70,7 @@ export class AudioPlayerService {
 
   setupRepeatListener(track: AudioTrack) {
     if (track.type === 'local' && NativeAudio && NativeAudio.isPlaying) {
-      // Poll for end of playback
+      
       if (this.repeatPoll) clearInterval(this.repeatPoll);
       this.repeatPoll = setInterval(async () => {
         if (track.assetId) {

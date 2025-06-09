@@ -62,7 +62,7 @@ export class LocalPage {
 
     App.addListener('appStateChange', async ({ isActive }) => {
       if (!isActive) {
-        // App going to background - save current state
+        
         const currentTrack = this.audioPlayer.currentTrack$.value;
         const isPaused = this.audioPlayer.isPaused$.value;
 
@@ -70,13 +70,11 @@ export class LocalPage {
           await this.userPreferences.setPreference('lastPlayedTrack', currentTrack.assetId);
           await this.userPreferences.setPreference('wasPlaying', !isPaused);
 
-          // Pause playback (don't stop completely)
           if (!isPaused) {
             await this.audioPlayer.pause();
           }
         }
 
-        // Stop all audios to prevent overlap on resume
         await this.stopAllAudios();
       } else {
         await this.stopAllAudios();
@@ -86,7 +84,7 @@ export class LocalPage {
         if (lastPlayedAssetId && this.loadedAudios.length > 0) {
           const track = this.loadedAudios.find(a => a.assetId === lastPlayedAssetId);
           if (track) {
-            // Always restore as paused, never auto-play
+            
             this.audioPlayer.restoreTrackState(track, this.loadedAudios, true);
           }
         }
@@ -128,7 +126,6 @@ export class LocalPage {
         tracks: Array.isArray(p.tracks) ? p.tracks : []
       }));
 
-    // Only restore track if we don't already have one and there's no current playback
     if (!this.audioPlayer.currentTrack$.value) {
       const lastPlayedAssetId = await this.userPreferences.getPreference('lastPlayedTrack');
       if (lastPlayedAssetId && this.loadedAudios.length > 0) {
@@ -205,13 +202,11 @@ export class LocalPage {
         try {
           await NativeAudio.preload({ assetId: audio.assetId, assetPath: audio.src });
         } catch (e) {
-          // Ignore error if already loaded
         }
       }
     }
   }
 
-  // Call this after loading audios
   async restoreAudios() {
     if (this.audiosLoaded) return;
     try {
@@ -220,7 +215,6 @@ export class LocalPage {
 
       await this.preloadAllAudios();
 
-      // Ensure the current track is in loadedAudios if it exists
       const currentTrack = this.audioPlayer.currentTrack$.value;
       if (currentTrack && !this.loadedAudios.some(a => a.assetId === currentTrack.assetId)) {
         this.loadedAudios.push(currentTrack);
@@ -236,12 +230,10 @@ export class LocalPage {
   async unloadAudio(assetId: string) {
     const audio = this.loadedAudios.find(a => a.assetId === assetId);
     if (audio) {
-      // If the deleted audio is the current track, stop playback and clear state BEFORE unloading
       if (this.currentTrackSnapshot?.assetId === assetId) {
         try {
           await this.audioPlayer.pause();
         } catch (e) {
-          // Optionally log or ignore the error
         }
         this.audioPlayer.currentTrack$.next(null);
         this.audioPlayer.isPaused$.next(true);
@@ -279,7 +271,6 @@ export class LocalPage {
       if (!track.type) {
         track.type = 'local';
       }
-      // Start playback
       this.audioPlayer.playTrack(track, this.loadedAudios);
       NativeAudio.isPlaying({ assetId }).then(res => {
         console.log('Native isPlaying:', res.isPlaying);
@@ -432,7 +423,6 @@ export class LocalPage {
     await alert.present();
   }
 
-  // To add a track to a playlist
   async addToPlaylist(audio: AudioTrack) {
     const playlists = await this.playlistService.getPlaylists();
     const alert = await this.alertController.create({
@@ -509,8 +499,7 @@ export class LocalPage {
     });
     await alert.present();
   }
-
-
+  
   async presentPlaylistOptions(event: Event, playlist: any) {
     event.stopPropagation();
     const actionSheet = await this.actionSheetController.create({
